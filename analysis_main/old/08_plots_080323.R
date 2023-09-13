@@ -1,0 +1,888 @@
+library(reshape2)
+library(ggplot2)
+library(ggcorrplot)
+library(factoextra)
+library(plyr)
+library(data.table)
+library(ggradar)
+library(tidyverse)
+library(emmeans)
+
+# Function to summarize data in long format
+data_summary <- function(data, varname, groupnames){
+  summary_func <- function(x, col){
+    c(
+      mn = mean(x[[col]], na.rm=TRUE),
+      mdn = median(x[[col]], na.rm=TRUE),
+      sd = sd(x[[col]], na.rm=TRUE),
+      se = sd(x[[col]], na.rm=TRUE)/sqrt(length(x[[col]])),
+      ci = qt(0.975,df=length(x[[col]])-1)*sd(x[[col]], na.rm=TRUE)/sqrt(length(x[[col]]))
+    )
+  }
+  data_sum<-ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  return(data_sum)
+}
+
+setwd('/Users/ltozzi/Dropbox (PanLab)/cluster paper')
+
+data=read.csv('data/dataset_merged_qc_imputed_combat_clin_std_clu_dataspl_treat.csv')
+data$clu = factor(data$clu,levels = c('Rest hyper-connectivity', 'Inattention', 'Context insensitivity', 'Cognitive dyscontrol hyper',  'Cognitive dyscontrol hypo', 'Intact'))
+
+#### Plot cluster profiles for two individuals ####
+img_vars_names_final=c('D2D1', 'D1D3', 'D1D4', 'D2D4', 'D3D4', 'S1S3', 'S2S4', 'S1S2', 'A2A1', 'A3A1', 'A4A2', 'A5A3', 'A4A6', 'A5A7', 'NS1', 'NS2', 'NS3', 'NS4', 'NS5', 'NS2NS1', 'NS3NS1', 'NS4NS1', 'NS5NS1', 'NT1', 'NT2', 'NT3', 'NT2NT1', 'NT3NT1', 'NTN1', 'NTN2', 'NTN3', 'NTN2NTN1', 'NTN3NTN1', 'P1', 'P2', 'P3', 'C1', 'C2', 'C3', 'C1C2', 'C3C2')
+temp=data[1:2, ]
+data_long <- melt(temp, id.vars = c("id", "clu"), measure.vars = img_vars_names_final, variable.name = "feature", value.name = "score")
+
+# Basic line plot with points
+ggplot(data=data_long, aes(x=feature, y=score, group=id, col=id)) +
+  geom_line(linewidth=1.5)+
+  geom_point(size=2)+
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  xlab("") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                   panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+  theme(legend.position = "none", legend.title=element_text(size=18), legend.text=element_text(size=18))+
+  theme(panel.spacing = unit(2, "lines"))+
+  theme(axis.text = element_text(size = 18), axis.title =  element_text(size = 18), strip.text.x = element_text(size = 18))+
+  ylab("Personalized regional circuit score")
+
+##### Smaller distance matrix ####
+X=data[1:100, img_vars_names_final]
+
+# Calculate distance
+dist_mat <- (1-cor(t(X)))
+ggcorrplot(dist_mat, hc.order = TRUE, type = "full", ggtheme = ggplot2::theme_minimal, show.diag = FALSE)+
+  scale_fill_gradient2(limit = c(0,2), low = "blue", high =  "red", mid = "white", midpoint = 1) + labs(fill = "distance")
+
+##### Dendrogram ####
+X=data[, img_vars_names_final]
+dist_mat <- as.dist(1-cor(t(X)))
+hclust_res <- hclust(dist_mat, method = "average")
+fviz_dend(hclust_res, k = 6, # Cut in 6 groups
+          cex = 1, # label size
+          k_colors = c("#2C3E50", "#E74C3C", "#3498DB", "#F1C40F","#27AE60", "#8E44AD"),
+          show_labels = FALSE,horiz = TRUE)+  theme(axis.text = element_text(size = 18), axis.title =  element_text(size = 18), strip.text.x = element_text(size = 18))
+
+
+#### Plot cluster profiles ####
+img_vars_names_final=c('D2D1', 'D1D3', 'D1D4', 'D2D4', 'D3D4', 'S1S3', 'S2S4', 'S1S2', 'A2A1', 'A3A1', 'A4A2', 'A5A3', 'A4A6', 'A5A7', 'NS1', 'NS2', 'NS3', 'NS4', 'NS5', 'NS2NS1', 'NS3NS1', 'NS4NS1', 'NS5NS1', 'NT1', 'NT2', 'NT3', 'NT2NT1', 'NT3NT1', 'NTN1', 'NTN2', 'NTN3', 'NTN2NTN1', 'NTN3NTN1', 'P1', 'P2', 'P3', 'C1', 'C2', 'C3', 'C1C2', 'C3C2')
+data_long <- melt(data, id.vars = c("id", "clu"), measure.vars = img_vars_names_final, variable.name = "feature", value.name = "score")
+df_plot <- data_summary(data_long, varname="score", groupnames=c("feature", "clu"))
+
+df_plot[startsWith(as.character(df_plot$feature), 'D'),'color']='#83A4D1'
+df_plot[startsWith(as.character(df_plot$feature), 'S'),'color']='#46B674'
+df_plot[startsWith(as.character(df_plot$feature), 'A'),'color']='#EFD658'
+df_plot[startsWith(as.character(df_plot$feature), 'N'),'color']='#D77842'
+df_plot[startsWith(as.character(df_plot$feature), 'P'),'color']='#7E5DA6'
+df_plot[startsWith(as.character(df_plot$feature), 'C'),'color']='#B75A65'
+df_plot$color=factor(df_plot$color, levels=c('#83A4D1', '#46B674', '#EFD658', '#D77842', '#7E5DA6', '#B75A65'))
+df_plot=na.omit(df_plot)
+
+# Bar plot of full profile of each cluster
+png(file=paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/circuit_profile_bars_allfeats.png", sep=''),width=2000, height=1200)
+ggplot(df_plot)+ 
+  geom_bar(aes(x = feature, y=mn, fill=color), stat="identity") + 
+  facet_wrap(~clu, nrow = 3, scales='free') + 
+  scale_y_continuous(limits=c(-1.8,1.8), expand = c(0, 0)) +
+  geom_errorbar(aes(x=feature, ymin=mn-se, ymax=mn+se), width=.1) + 
+  labs(title="",x="", y = "")+
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1.2)) +
+  xlab("") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                   panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+  theme(legend.position = "bottom", legend.title=element_text(size=18), legend.text=element_text(size=18))+
+  theme(panel.spacing = unit(2, "lines"))+
+  theme(axis.text = element_text(size = 18), axis.title =  element_text(size = 18), strip.text.x = element_text(size = 18)) +
+  scale_fill_manual(name='Regional circuit score', values = levels(df_plot$color), labels=c('Default', 'Salience', 'Attention', 'Negative', 'Positive', 'Cognitive')) +
+  theme(strip.text.x = element_blank())
+dev.off()
+
+
+#### Plot summary of circuit scores ####
+
+# Compute summary of circuit scores
+data[, 'DMN-C']=rowMeans(data[, c('D2D1', 'D1D3', 'D1D4', 'D2D4', 'D3D4')])
+data[, 'SAL-C']=rowMeans(data[, c('S1S3', 'S2S4', 'S1S2')])
+data[, 'ATT-C']=rowMeans(data[, c('A2A1', 'A3A1', 'A4A2', 'A5A3', 'A4A6', 'A5A7')])
+data[, 'NAs-A']=rowMeans(data[, c('NS4', 'NS5', 'NS3', 'NS2', 'NS1')])
+data[, 'NAs-C']=rowMeans(data[, c('NS2NS1', 'NS3NS1', 'NS4NS1', 'NS5NS1')])
+data[, 'NAt-A']=rowMeans(data[, c('NT2', 'NT3', 'NT1')])
+data[, 'NAt-C']=rowMeans(data[, c('NT2NT1', 'NT3NT1')])
+data[, 'NAnt-A']=rowMeans(data[, c('NTN3', 'NTN2', 'NTN1')])
+data[, 'NAnt-C']=rowMeans(data[, c('NTN2NTN1', 'NTN3NTN1')])
+data[, 'POS-A']=rowMeans(data[, c('P1', 'P2', 'P3')])
+data[, 'COG-A']=rowMeans(data[, c('C1', 'C3', 'C2')])
+data[, 'COG-C']=rowMeans(data[, c('C1C2', 'C3C2')])
+
+scores_names_final_rename=c('DMN-C', 'SAL-C', 'ATT-C', 'NAs-A', 'NAs-C', 'NAt-A', 'NAt-C', 'NAnt-A', 'NAnt-C', 'POS-A', 'COG-A', 'COG-C')
+
+data_long <- melt(data, id.vars = c("id", "clu"), measure.vars = scores_names_final_rename, variable.name = "feature", value.name = "score")
+df_plot <- data_summary(data_long, varname="score", groupnames=c("feature", "clu"))
+
+df_plot[startsWith(as.character(df_plot$feature), 'DMN'),'color']='#83A4D1'
+df_plot[startsWith(as.character(df_plot$feature), 'SAL'),'color']='#46B674'
+df_plot[startsWith(as.character(df_plot$feature), 'ATT'),'color']='#EFD658'
+df_plot[startsWith(as.character(df_plot$feature), 'NA'),'color']='#D77842'
+df_plot[startsWith(as.character(df_plot$feature), 'POS'),'color']='#7E5DA6'
+df_plot[startsWith(as.character(df_plot$feature), 'COG'),'color']='#B75A65'
+df_plot[abs(df_plot$mn)<0.5, 'color']='grey'
+
+df_plot$color=factor(df_plot$color, levels=c('#83A4D1', '#46B674', '#EFD658', '#D77842', '#7E5DA6', '#B75A65', 'grey'))
+df_plot=na.omit(df_plot)
+
+# Bar plot of summary of circuit scores for each cluster
+png(file=paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/circuit_profile_bars.png", sep=''),width=700, height=1200)
+ggplot(df_plot)+ 
+  geom_bar(aes(x = feature, y=mn, fill=color), stat="identity") + 
+  facet_wrap(~clu, nrow = 3, scales='free') + 
+  scale_y_continuous(limits=c(-1.1,1.1), expand = c(0, 0)) +
+  geom_errorbar(aes(x=feature, ymin=mn-se, ymax=mn+se), width=.1) + 
+  labs(title="",x="", y = "")+
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1.2)) +
+  xlab("") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                   panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+  theme(legend.position = "bottom", legend.title=element_text(size=18), legend.text=element_text(size=18))+
+  theme(panel.spacing = unit(2, "lines"))+
+  theme(axis.text = element_text(size = 18), axis.title =  element_text(size = 18), strip.text.x = element_text(size = 18)) +
+  scale_fill_manual(name='Regional circuit score', values = levels(df_plot$color), labels=c('Default', 'Salience', 'Attention', 'Negative', 'Positive', 'Cognitive', 'Within norm')) +
+  theme(strip.text.x = element_blank())
+dev.off()
+
+
+# Bar plot of summary of circuit scores for the two split halves
+data_spl1=data[data$split2==1, ]
+data_spl2=data[data$split2==2, ]
+
+data_spl1[, 'DMN-C']=rowMeans(data_spl1[, c('D2D1', 'D1D3', 'D1D4', 'D2D4', 'D3D4')])
+data_spl1[, 'SAL-C']=rowMeans(data_spl1[, c('S1S3', 'S2S4', 'S1S2')])
+data_spl1[, 'ATT-C']=rowMeans(data_spl1[, c('A2A1', 'A3A1', 'A4A2', 'A5A3', 'A4A6', 'A5A7')])
+data_spl1[, 'NAs-A']=rowMeans(data_spl1[, c('NS4', 'NS5', 'NS3', 'NS2', 'NS1')])
+data_spl1[, 'NAs-C']=rowMeans(data_spl1[, c('NS2NS1', 'NS3NS1', 'NS4NS1', 'NS5NS1')])
+data_spl1[, 'NAt-A']=rowMeans(data_spl1[, c('NT2', 'NT3', 'NT1')])
+data_spl1[, 'NAt-C']=rowMeans(data_spl1[, c('NT2NT1', 'NT3NT1')])
+data_spl1[, 'NAnt-A']=rowMeans(data_spl1[, c('NTN3', 'NTN2', 'NTN1')])
+data_spl1[, 'NAnt-C']=rowMeans(data_spl1[, c('NTN2NTN1', 'NTN3NTN1')])
+data_spl1[, 'POS-A']=rowMeans(data_spl1[, c('P1', 'P2', 'P3')])
+data_spl1[, 'COG-A']=rowMeans(data_spl1[, c('C1', 'C3', 'C2')])
+data_spl1[, 'COG-C']=rowMeans(data_spl1[, c('C1C2', 'C3C2')])
+data_spl2[, 'DMN-C']=rowMeans(data_spl2[, c('D2D1', 'D1D3', 'D1D4', 'D2D4', 'D3D4')])
+data_spl2[, 'SAL-C']=rowMeans(data_spl2[, c('S1S3', 'S2S4', 'S1S2')])
+data_spl2[, 'ATT-C']=rowMeans(data_spl2[, c('A2A1', 'A3A1', 'A4A2', 'A5A3', 'A4A6', 'A5A7')])
+data_spl2[, 'NAs-A']=rowMeans(data_spl2[, c('NS4', 'NS5', 'NS3', 'NS2', 'NS1')])
+data_spl2[, 'NAs-C']=rowMeans(data_spl2[, c('NS2NS1', 'NS3NS1', 'NS4NS1', 'NS5NS1')])
+data_spl2[, 'NAt-A']=rowMeans(data_spl2[, c('NT2', 'NT3', 'NT1')])
+data_spl2[, 'NAt-C']=rowMeans(data_spl2[, c('NT2NT1', 'NT3NT1')])
+data_spl2[, 'NAnt-A']=rowMeans(data_spl2[, c('NTN3', 'NTN2', 'NTN1')])
+data_spl2[, 'NAnt-C']=rowMeans(data_spl2[, c('NTN2NTN1', 'NTN3NTN1')])
+data_spl2[, 'POS-A']=rowMeans(data_spl2[, c('P1', 'P2', 'P3')])
+data_spl2[, 'COG-A']=rowMeans(data_spl2[, c('C1', 'C3', 'C2')])
+data_spl2[, 'COG-C']=rowMeans(data_spl2[, c('C1C2', 'C3C2')])
+
+#### Reproduce original plot for each of the two splits #### 
+
+# Prepare first split
+scores_names_final_rename=c('DMN-C', 'SAL-C', 'ATT-C', 'NAs-A', 'NAs-C', 'NAt-A', 'NAt-C', 'NAnt-A', 'NAnt-C', 'POS-A', 'COG-A', 'COG-C')
+data_long <- melt(data_spl1, id.vars = c("id", "clu_spl2"), measure.vars = scores_names_final_rename, variable.name = "feature", value.name = "score")
+df_plot <- data_summary(data_long, varname="score", groupnames=c("feature", "clu_spl2"))
+df_plot[startsWith(as.character(df_plot$feature), 'DMN'),'color']='#83A4D1'
+df_plot[startsWith(as.character(df_plot$feature), 'SAL'),'color']='#46B674'
+df_plot[startsWith(as.character(df_plot$feature), 'ATT'),'color']='#EFD658'
+df_plot[startsWith(as.character(df_plot$feature), 'NA'),'color']='#D77842'
+df_plot[startsWith(as.character(df_plot$feature), 'POS'),'color']='#7E5DA6'
+df_plot[startsWith(as.character(df_plot$feature), 'COG'),'color']='#B75A65'
+df_plot[abs(df_plot$mn)<0.5, 'color']='grey'
+
+df_plot$color=factor(df_plot$color, levels=c('#83A4D1', '#46B674', '#EFD658', '#D77842', '#7E5DA6', '#B75A65', 'grey'))
+df_plot=na.omit(df_plot)
+
+# Bar plot for first split
+png(file=paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/circuit_profile_bars_split1.png", sep=''),width=700, height=1200)
+ggplot(df_plot)+ 
+  geom_bar(aes(x = feature, y=mn, fill=color), stat="identity") + 
+  facet_wrap(~clu_spl2, nrow = 3, scales='free') + 
+  scale_y_continuous(limits=c(-1.3,1.3), expand = c(0, 0)) +
+  geom_errorbar(aes(x=feature, ymin=mn-se, ymax=mn+se), width=.1) + 
+  labs(title="",x="", y = "")+
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1.2)) +
+  xlab("") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                   panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+  theme(legend.position = "bottom", legend.title=element_text(size=18), legend.text=element_text(size=18))+
+  theme(panel.spacing = unit(2, "lines"))+
+  theme(axis.text = element_text(size = 18), axis.title =  element_text(size = 18), strip.text.x = element_text(size = 18)) +
+  scale_fill_manual(name='Regional circuit score', values = levels(df_plot$color), labels=c('Default', 'Salience', 'Attention', 'Negative', 'Positive', 'Cognitive', 'Within norm')) +
+  theme(strip.text.x = element_blank())
+dev.off()
+
+# Prepare second split
+data_long <- melt(data_spl2, id.vars = c("id", "clu_spl2"), measure.vars = scores_names_final_rename, variable.name = "feature", value.name = "score")
+df_plot <- data_summary(data_long, varname="score", groupnames=c("feature", "clu_spl2"))
+df_plot[startsWith(as.character(df_plot$feature), 'DMN'),'color']='#83A4D1'
+df_plot[startsWith(as.character(df_plot$feature), 'SAL'),'color']='#46B674'
+df_plot[startsWith(as.character(df_plot$feature), 'ATT'),'color']='#EFD658'
+df_plot[startsWith(as.character(df_plot$feature), 'NA'),'color']='#D77842'
+df_plot[startsWith(as.character(df_plot$feature), 'POS'),'color']='#7E5DA6'
+df_plot[startsWith(as.character(df_plot$feature), 'COG'),'color']='#B75A65'
+df_plot[abs(df_plot$mn)<0.5, 'color']='grey'
+df_plot$color=factor(df_plot$color, levels=c('#83A4D1', '#46B674', '#EFD658', '#D77842', '#7E5DA6', '#B75A65', 'grey'))
+df_plot=na.omit(df_plot)
+
+# Bar plot for second split
+png(file=paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/circuit_profile_bars_split2.png", sep=''),width=700, height=1200)
+ggplot(df_plot)+ 
+  geom_bar(aes(x = feature, y=mn, fill=color), stat="identity") + 
+  facet_wrap(~clu_spl2, nrow = 3, scales='free') + 
+  scale_y_continuous(limits=c(-1.1,1.1), expand = c(0, 0)) +
+  geom_errorbar(aes(x=feature, ymin=mn-se, ymax=mn+se), width=.1) + 
+  labs(title="",x="", y = "")+
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1.2)) +
+  xlab("") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                   panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+  theme(legend.position = "bottom", legend.title=element_text(size=18), legend.text=element_text(size=18))+
+  theme(panel.spacing = unit(2, "lines"))+
+  theme(axis.text = element_text(size = 18), axis.title =  element_text(size = 18), strip.text.x = element_text(size = 18)) +
+  scale_fill_manual(name='Regional circuit score', values = levels(df_plot$color), labels=c('Default', 'Salience', 'Attention', 'Negative', 'Positive', 'Cognitive', 'Within norm')) +
+  theme(strip.text.x = element_blank())
+dev.off()
+
+#### Plot boxplots of symptoms ####
+
+comps_names_old=c('Ruminative.worry','Ruminative.brooding','Tension','Negative.bias','Threat.dysregulation','Anhedonia','Anxious.arousal','Cognitive.dyscontrol', 'Sleep')
+comps_names=c('Ruminative worry','Ruminative brooding','Tension','Negative bias','Threat dysregulation','Anhedonia','Anxious arousal','Cognitive dyscontrol', 'Sleep')
+setnames(data,comps_names_old, comps_names)
+
+# Function for rescaling 
+rescale_min_max_vals <- function(x, minval, maxval) {
+  (x - minval) / (maxval - minval)
+}
+
+# Rescale symptoms
+data_copy=data
+data_copy[, 'Ruminative worry']=rescale_min_max_vals(data_copy[, 'Ruminative worry'],16, 80) 
+data_copy[, 'Ruminative brooding']=rescale_min_max_vals(data_copy[, 'Ruminative brooding'],22, 88) 
+data_copy[, 'Tension']=rescale_min_max_vals(data_copy[, 'Tension'],0, 42) 
+data_copy[, 'Negative bias']=rescale_min_max_vals(data_copy[, 'Negative bias'],0, 42) 
+data_copy[, 'Threat dysregulation']=rescale_min_max_vals(data_copy[, 'Threat dysregulation'],0, 42) 
+data_copy[, 'Anhedonia']=rescale_min_max_vals(data_copy[, 'Anhedonia'],0, 14) 
+data_copy[, 'Anxious arousal']=rescale_min_max_vals(data_copy[, 'Anxious arousal'],10, 50) 
+data_copy[, 'Cognitive dyscontrol']=rescale_min_max_vals(data_copy[, 'Cognitive dyscontrol'],8, 32) 
+data_copy[, 'Sleep']=rescale_min_max_vals(data_copy[, 'Sleep'],0, 9) 
+
+# Convert the data from wide to long format
+long_data <- data_copy %>%
+  pivot_longer(cols = all_of(comps_names), names_to = "Component", values_to = "Value")
+
+# Compute the median for each Component in each cluster
+medians <- long_data %>%
+  group_by(Component, clu) %>%
+  summarise(mdn_self = median(Value, na.rm = TRUE)) %>%
+  ungroup()
+
+# Compute the median for each Component for the other clusters
+other_medians=as.data.frame(matrix(nrow = 0, ncol=3))
+for (clu in unique(data_copy$clu)){
+  for (comp in comps_names){
+    vals=data_copy[data_copy$clu!=clu, comp]
+    mdn=median(vals, na.rm=T)
+    other_medians[nrow(other_medians)+1, ]=c(comp, clu, mdn)
+  }
+}
+names(other_medians)=c('Component', 'clu', 'mdn_other')
+other_medians$mdn_other=as.numeric(other_medians$mdn_other)
+medians_all=merge(medians, other_medians,by = c('Component', 'clu') )
+
+# Convert to factors
+long_data$Component=factor(long_data$Component)
+medians_all$Component=factor(medians_all$Component)
+
+# Plot boxplot
+png(file=paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/symps_boxplot.png", sep=''),width=1000, height=1000)
+ggplot(long_data, aes(x = Component, y = Value)) +
+  geom_boxplot(fill = "lightcoral", outlier.shape = NA) +
+  facet_wrap(~clu, scales = "free_x") +  # add scales = "free_x" to allow each facet to have its own x scale
+  geom_point(data = medians_all, aes(y = mdn_other), color = "black", size = 5, shape = 23, fill = "white") +
+  labs(title="", y = "Symptom severity")+
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+  theme(legend.position = "bottom", legend.title=element_text(size=18), legend.text=element_text(size=18))+
+  theme(panel.spacing = unit(2, "lines"))+
+  theme(axis.text = element_text(size = 18), axis.title =  element_text(size = 18), strip.text.x = element_text(size = 18)) 
+dev.off()
+
+
+#### Plot boxplots of behavioral dysfunction ####
+comps_names_old=c('Maze_completion_time','Maze_errors','Go.Nogo_mean_RT','Go.Nogo_commission_errors','Working_memory_omission_errors','Working_memory_commission_errors','Working_memory_RT','Implicit_anger_RT','Implicit_fear_RT','Implicit_happy_RT','Implicit_sad_RT','Implicit_neutral_RT', 'Explicit_anger_RT','Explicit_fear_RT','Explicit_happy_RT','Explicit_sad_RT')
+comps_names=c('Maze completion time','Maze errors','Go-Nogo mean RT','Go-Nogo commission errors','Working memory omission errors','Working memory commission errors','Working memory RT','Implicit anger RT','Implicit fear RT','Implicit happy RT','Implicit sad RT','Implicit neutral RT', 'Explicit anger RT','Explicit fear RT','Explicit happy RT','Explicit sad RT')
+setnames(data_spl1,comps_names_old, comps_names, skip_absent = T)
+
+# Convert the data from wide to long format
+long_data <- data_copy %>%
+  pivot_longer(cols = all_of(comps_names), names_to = "Component", values_to = "Value")
+
+# Compute the median for each Component in each cluster
+medians <- long_data %>%
+  group_by(Component, clu) %>%
+  summarise(mdn_self = median(Value, na.rm = TRUE)) %>%
+  ungroup()
+
+# Compute the median for each Component for the other clusters
+other_medians=as.data.frame(matrix(nrow = 0, ncol=3))
+for (clu in unique(data_copy$clu)){
+  for (comp in comps_names){
+    vals=data_copy[data_copy$clu!=clu, comp]
+    mdn=median(vals, na.rm=T)
+    other_medians[nrow(other_medians)+1, ]=c(comp, clu, mdn)
+  }
+}
+names(other_medians)=c('Component', 'clu', 'mdn_other')
+other_medians$mdn_other=as.numeric(other_medians$mdn_other)
+medians_all=merge(medians, other_medians,by = c('Component', 'clu') )
+
+# Convert to factors
+long_data$Component=factor(long_data$Component)
+medians_all$Component=factor(medians_all$Component)
+
+# Plot boxplot
+png(file=paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/behs_boxplot.png", sep=''),width=1000, height=1000)
+ggplot(long_data, aes(x = Component, y = Value)) +
+  geom_boxplot(fill = "lightcoral", outlier.shape = NA) +
+  facet_wrap(~clu, scales = "free_x") +  # add scales = "free_x" to allow each facet to have its own x scale
+  geom_point(data = medians_all, aes(y = mdn_other), color = "black", size = 5, shape = 23, fill = "white") +
+  labs(title="", y = "Symptom severity")+
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+  theme(legend.position = "bottom", legend.title=element_text(size=18), legend.text=element_text(size=18))+
+  theme(panel.spacing = unit(2, "lines"))+
+  theme(axis.text = element_text(size = 18), axis.title =  element_text(size = 18), strip.text.x = element_text(size = 18)) +
+  ylim(c(-2, 2))
+dev.off()
+
+
+
+#### Plot boxplots of treatment response ####
+# Select only treatment data
+treats=c('Escitalopram', 'Sertraline', 'Venlafaxine XR', 'I-CARE', 'TAU')
+data_mod=data[data$treatment_arm %in% treats,]
+data_mod$clu=factor(data_mod$clu)
+
+# Convert the data from wide to long format
+long_data <- data_mod %>%
+  pivot_longer(cols = all_of('treat_severity_fu_scaled'), names_to = "Component", values_to = "Value")
+
+long_data$treatment_arm=factor(long_data$treatment_arm, levels = c('Escitalopram', 'Sertraline', 'Venlafaxine XR', 'I-CARE', 'TAU'), labels = c('Escitalopram', 'Sertraline', 'Venlafaxine XR', 'I-CARE', 'U-CARE'))
+
+# Compute the median for each Component in each cluster
+medians <- long_data %>%
+  group_by(Component, clu, treatment_arm) %>%
+  summarise(
+    mdn_self = median(Value, na.rm = TRUE),
+    n = n()
+  ) %>%
+  ungroup()
+
+# Compute the median for each Component for the other clusters
+other_medians=as.data.frame(matrix(nrow = 0, ncol=3))
+for (clu in unique(data_mod$clu)){
+  for (treat in treats){
+    vals=data_mod[data_mod$clu!=clu & data_mod$treatment_arm==treat, 'treat_severity_fu_scaled']
+    mdn=median(vals, na.rm=T)
+    other_medians[nrow(other_medians)+1, ]=c(treat, clu, mdn)
+  }
+}
+names(other_medians)=c('treatment_arm', 'clu', 'mdn_other')
+other_medians$mdn_other=as.numeric(other_medians$mdn_other)
+medians_all=merge(medians, other_medians,by = c('treatment_arm', 'clu') )
+
+# Filter clusters with less than 6 people in each treatment from the median dataframe
+medians_all=medians_all[medians_all$n>5, ]
+
+# Now also remove these cluster-treatment combinations from the long_data dataframe
+long_data <- long_data %>%
+  inner_join(medians_all %>% select(clu, treatment_arm), by = c("clu", "treatment_arm"))
+
+long_data$Value_flipped=1-long_data$Value
+# Plot boxplot
+png(file=paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/treat_boxplot.png", sep=''),width=1000, height=1200)
+ggplot(long_data, aes(x = clu, y = Value)) +
+  geom_boxplot(fill = "lightcoral", outlier.shape = NA) +
+  facet_wrap(~treatment_arm, scales = "free_x") +  # add scales = "free_x" to allow each facet to have its own x scale
+  geom_point(data = medians_all, aes(y = mdn_other), color = "black", size = 5, shape = 23, fill = "white") +
+  labs(title="", y = "Severity after treatment")+
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+  theme(legend.position = "bottom", legend.title=element_text(size=18), legend.text=element_text(size=18))+
+  theme(panel.spacing = unit(2, "lines"))+
+  theme(axis.text = element_text(size = 18), axis.title =  element_text(size = 18), strip.text.x = element_text(size = 18)) 
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#### OLD PLOTS
+
+
+
+#### Radar plots ####
+data_melted=melt(data = data[, c('id', 'clu', scores_names_final_rename)], id.vars=c('id', 'clu'), measure.vars = scores_names_final_rename)
+data_melted=na.omit(data_melted)
+df_plot <- data_summary(data_melted, varname="value", groupnames=c("variable", "clu"))
+temp=dcast(data = df_plot,formula = clu~variable,value.var = "mn")
+clunames=temp$clu
+temp$clu=as.numeric(factor(temp$clu))
+
+
+for (clu in 1:max(temp$clu)){
+  temp_plot=temp[clu, ]
+  png(file=paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/", clu, '_circuit_radar.png', sep=''),width=800, height=600)
+  print(ggradar(temp_plot, values.radar = c('','', ''), grid.min = -1, grid.mid = 0, grid.max = 1,  plot.title = paste(clunames[clu]),
+                axis.labels = scores_names_final_rename, 
+                gridline.min.linetype = 'solid',
+                gridline.mid.linetype='dashed',
+                gridline.max.linetype='solid',
+                gridline.mid.colour = 'honeydew4',
+                group.colours='honeydew4',
+                background.circle.colour = "white",plot.extent.x.sf = 1.5))
+  dev.off()
+}
+
+#### Symptom clusters ####
+
+# Radar plots
+comps=c('pswq_total', 'rrs_total','dass42_str_score','dass42_dep_score','dass42_anx_score', 'shaps_total','masq30_gen_score', 'bis_att_score')
+comp_names=c('Ruminative worry', 'Ruminative brooding ', 'Tension', 'Negative bias','Threat dysregulation', 'Anhedonia', 'Anxious arousal', 'Cognitive dyscontrol')
+
+# Scale all composites between 0 and 1
+comps_scaled=c()
+for (comp in comps){
+  data[, paste(comp, '_scaled', sep = '')]=(data[, comp]-min(data[, comp], na.rm = TRUE))/(max(data[, comp], na.rm = TRUE)-min(data[, comp], na.rm = TRUE))
+  comps_scaled=append(comps_scaled, paste(comp, '_scaled', sep = ''))
+}
+
+data_melted=melt(data = data[, c('id', 'clu', comps_scaled)], id.vars=c('id', 'clu'), measure.vars = comps_scaled)
+data_melted=na.omit(data_melted)
+df_plot <- data_summary(data_melted, varname="value", groupnames=c("variable", "clu"))
+temp=dcast(data = df_plot,formula = clu~variable,value.var = "mdn")
+clunames=temp$clu
+temp$clu=as.numeric(factor(temp$clu))
+
+for (clu in 1:max(temp$clu)){
+  temp_plot=temp[clu, ]
+  png(file=paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/", clu, '_symptom_radar.png', sep=''),width=800, height=600)
+  print(ggradar(temp_plot, values.radar = c('','', ''), grid.min = 0, grid.mid = 0.5, grid.max = 1,  plot.title = paste(clunames[clu]),
+                axis.labels = rep("", length(comp_names)),
+                gridline.min.linetype = 'solid',
+                gridline.mid.linetype='blank',
+                gridline.max.linetype='solid',
+                group.colours='honeydew4',
+                background.circle.colour = "white",plot.extent.x.sf = 1.5))
+  dev.off()
+}
+
+# Box plot by cluster
+data_long <- melt(data, id.vars = c("id", "clu"), measure.vars = comps_scaled, variable.name = "feature", value.name = "value")
+
+png(file=paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/clu_sym_box.png", sep=''),width=800, height=1200)
+ggplot(data_long)+ 
+  geom_boxplot(aes(x = feature, y=value), fill='grey', outlier.shape = NA) + 
+  facet_wrap(~clu, nrow = 3, scales='free') + 
+  scale_y_continuous(limits=c(0,1), expand = c(0, 0)) +
+  labs(title="",x="Circuit", y = "Symptom severity")+
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  xlab("") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                   panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+  scale_x_discrete(labels=comp_names) +
+  theme(legend.position = "bottom", legend.title=element_text(size=18), legend.text=element_text(size=18))+
+  theme(panel.spacing = unit(2, "lines"))+
+  theme(axis.text = element_text(size = 18), axis.title =  element_text(size = 18), strip.text.x = element_text(size = 18)) +
+  scale_fill_manual(name='Circuit dysfunction', values = levels(df_plot$col), labels=c('Default', 'Salience', 'Attention', 'Negative', 'Positive', 'Cognitive', 'Within norm'))+
+  theme(strip.text.x = element_blank())
+dev.off()
+
+
+#### Behavior clusters ####
+
+comps=c('Maze_completion_time','Maze_errors','Go.Nogo_mean_RT','Go.Nogo_commission_errors','Working_memory_omission_errors','Working_memory_commission_errors','Working_memory_RT','Implicit_threat_priming_RT','Implicit_happy_priming_RT','Implicit_sad_priming_RT','Explicit_threat_RT','Explicit_happy_RT','Explicit_sad_RT')
+comp_names=c('Maze completion time','Maze errors','Go-Nogo mean RT','Go-Nogo commission errors','Working memory omission errors','Working memory commission errors','Working memory RT','Implicit threat priming RT','Implicit happy priming RT','Implicit sad priming RT','Explicit threat RT','Explicit happy RT','Explicit sad RT')
+
+# Scale all composites between 0 and 1
+comps_scaled=c()
+for (comp in comps){
+  data[, paste(comp, '_scaled', sep = '')]=(data[, comp]-min(data[, comp], na.rm = TRUE))/(max(data[, comp], na.rm = TRUE)-min(data[, comp], na.rm = TRUE))
+  comps_scaled=append(comps_scaled, paste(comp, '_scaled', sep = ''))
+}
+
+# Radar plots
+data_melted=melt(data = data[, c('id', 'clu', comps_scaled)], id.vars=c('id', 'clu'), measure.vars = comps_scaled)
+data_melted=na.omit(data_melted)
+df_plot <- data_summary(data_melted, varname="value", groupnames=c("variable", "clu"))
+temp=dcast(data = df_plot,formula = clu~variable,value.var = "mdn")
+clunames=temp$clu
+temp$clu=as.numeric(factor(temp$clu))
+
+for (clu in 1:max(temp$clu)){
+  temp_plot=temp[clu, ]
+  png(file=paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/", clu, '_beh_radar.png', sep=''),width=800, height=600)
+  print(ggradar(temp_plot, values.radar = c('','', ''), grid.min = 0, grid.mid = 0, grid.max =1,  plot.title = paste(clunames[clu]),
+                axis.labels = rep("", length(comp_names)),
+                gridline.min.linetype = 'solid',
+                gridline.mid.linetype='blank',
+                gridline.max.linetype='solid',
+                group.colours='honeydew4',
+                background.circle.colour = "white",plot.extent.x.sf = 1.5))
+  dev.off()
+}
+
+# Box plot by cluster
+data_long <- melt(data, id.vars = c("id", "clu"), measure.vars = comps, variable.name = "feature", value.name = "value")
+
+png(file=paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/clu_beh_box.png", sep=''),width=1200, height=1200)
+ggplot(data_long)+ 
+  geom_boxplot(aes(x = feature, y=value), fill='coralred', outlier.shape = NA) + 
+  facet_wrap(~clu, nrow =3, scales='free') + 
+  scale_y_continuous(limits=c(-4,4), expand = c(0, 0)) +
+  labs(title="",x="", y = "")+
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 1, hjust=1)) +
+  xlab("") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                   panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+  scale_x_discrete(labels="") +
+  theme(legend.position = "bottom", legend.title=element_text(size=18), legend.text=element_text(size=18))+
+  #theme(axis.text.x=element_blank(),axis.ticks.x=comp_names)+
+  theme(panel.spacing = unit(2, "lines"))+
+  theme(axis.text = element_text(size = 18), axis.title =  element_text(size = 18), strip.text.x = element_text(size = 18)) +
+  scale_fill_manual(name='Circuit dysfunction', values = levels(df_plot$col), labels=c('Default', 'Salience', 'Attention', 'Negative', 'Positive', 'Cognitive', 'Within norm')) + 
+  theme(strip.text.x = element_blank())
+dev.off()
+
+#### Plot treatment results ####
+
+# Test for effects of cluster and treatment
+treats=c('Escitalopram', 'Sertraline', 'Venlafaxine XR', 'I-CARE', 'U-CARE')
+
+data_treat=data[data$treatment_arm %in% treats,]
+data_treat$treatment_arm=factor(data_treat$treatment_arm, levels = c('Escitalopram', 'Sertraline', 'Venlafaxine XR', 'I-CARE', 'U-CARE'), labels =  c('Escitalopram', 'Sertraline', 'Venlafaxine', 'I-CARE', 'U-CARE'), ordered = TRUE)
+
+data_treat$clu=factor(data_treat$clu)
+anova(lm(treat_severity_fu_scaled~treat_severity_bl_scaled+clu*treatment_arm, data=data_treat))
+res=lm(treat_severity_fu_scaled~treat_severity_bl_scaled+clu*treatment_arm, data=data_treat)
+
+# Contrasts
+emmip(res, treatment_arm ~ clu, CIs = TRUE)
+res_emmeans=emmeans(res, list(pairwise ~ treatment_arm | clu ), adjust='none', CI=TRUE)
+emmeans_df=as.data.frame(res_emmeans)
+confint(res_emmeans) # CIs
+sig=sigma(res) # Cohen's d=emmean/sigma
+
+temp=emmeans_df[1:30,]
+temp$treatment_arm=factor(temp$treatment_arm, levels = c('Escitalopram', 'Sertraline', 'Venlafaxine', 'I-CARE', 'U-CARE'), labels =  c('Escitalopram', 'Sertraline', 'Venlafaxine', 'I-CARE', 'U-CARE'), ordered = TRUE)
+
+# Plot of the longitudinal effects
+png(file=paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/treat_resp_bars.png", sep=''),width=1200, height=1200)
+ggplot(temp)+ 
+  geom_bar(aes(x = treatment_arm, y=emmean),stat="identity") + 
+  facet_wrap(~clu, nrow = 3, scale='free') + 
+  scale_y_continuous(limits=c(-0.1, 1), expand = c(0, 0)) +
+  geom_errorbar(aes(x=treatment_arm, ymin=emmean-SE, ymax=emmean+SE), width=.1) + 
+  labs(title="",x="", y = "Severity after treatment (marginal mean and SE)")+
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+  theme(legend.position = "none")+
+  theme(axis.text = element_text(size = 18), axis.title =  element_text(size = 18), strip.text.x = element_text(size = 18)) +
+  theme(strip.text.x = element_blank())
+dev.off()
+
+
+# Radar plot for treatment effect
+data$predicted_treatsev_scaled=(data$predicted_treatsev-min(data$predicted_treatsev, na.rm = TRUE))/(max(data$predicted_treatsev, na.rm = TRUE)-min(data$predicted_treatsev, na.rm = TRUE))
+
+data_melted=melt(data = data[, c('id', 'clu', 'treatment_arm', 'predicted_treatsev_scaled')], id.vars=c('id', 'clu', 'treatment_arm'))
+data_melted=na.omit(data_melted)
+df_plot <- data_summary(data_melted, varname="value", groupnames=c("variable", "clu", "treatment_arm"))
+df_plot$treatment_arm=factor(df_plot$treatment_arm, levels = c('Escitalopram', 'Sertraline', 'Venlafaxine XR', 'I-CARE', 'TAU'), labels =  c('Escitalopram', 'Sertraline', 'Venlafaxine XR', 'I-CARE', 'U-CARE'), ordered = TRUE)
+
+temp=dcast(data = df_plot,formula = clu~treatment_arm,value.var = "mdn")
+
+# reorder columns
+temp=temp[, c('clu', 'Escitalopram', 'Sertraline', 'Venlafaxine XR', 'I-CARE', 'U-CARE')]
+clunames=temp$clu
+temp$clu=as.numeric(factor(temp$clu))
+
+for (clu in 1:max(temp$clu)){
+  temp_plot=temp[temp$clu==clu, ]
+  temp_plot=temp_plot[ , colSums(is.na(temp_plot))==0]
+  
+  png(file=paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/", clu, '_treatment_radar_nolabels.png', sep=''),width=800, height=600)
+  print(ggradar(temp_plot, values.radar = c('','', ''), grid.min = 0, grid.mid = 0.5, grid.max = 1,  plot.title = paste(clunames[clu]),
+                axis.labels = rep("", ncol(temp_plot)-1),
+                gridline.min.linetype = 'solid',
+                gridline.mid.linetype='blank',
+                gridline.max.linetype='solid',
+                group.colours='honeydew4',
+                background.circle.colour = "white",plot.extent.x.sf = 1.5))
+  dev.off()
+}
+
+#### Diagnosis pies ####
+diags=c('mdd_current', 'gad_current', 'panic_current', 'social_phobia_current', 'ocd_current', 'ptsd_current')
+diag_labels=c('Major depression', 'Generalized anxiety', 'Panic disorder', 'OCD', 'PTSD')
+
+lab=1
+par(mfrow=c(length(unique(data$clu)),length(diags)), mai=c(0,0,0,0))
+for (clu in levels(data$clu)){
+  for (diag in diags){
+    
+    diag_clucount=sum((data[, diag]==1) & (data['clu']==clu), na.rm = TRUE)
+    nodiag_clucount=sum((data[, diag]==0) & (data['clu']==clu), na.rm = TRUE)
+    
+    pie(c(nodiag_clucount, diag_clucount), labels = "", main="", col = c("gray60", "red"), border = "white")
+    lab=lab+1
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+
+# Initialize an empty data frame for the combined data
+long_data_combined <- data.frame()
+
+# Iterate through each unique cluster
+for (clu in unique(data_copy$clu)) {
+  
+  # Create a temporary copy of the data
+  temp_data <- data_copy
+  
+  # Label the data based on cluster membership
+  temp_data$Cluster_Type <- ifelse(temp_data$clu == clu, "In Cluster", "Not In Cluster")
+  
+  # Convert to long format
+  long_data <- temp_data %>%
+    pivot_longer(cols = all_of(comps_names), names_to = "Component", values_to = "Value")
+  
+  # Combine with previous clusters
+  long_data_combined <- bind_rows(long_data_combined, long_data)
+}
+
+# Convert to factors
+long_data_combined$Cluster_Type <- factor(long_data_combined$Cluster_Type, levels = c("In Cluster", "Not In Cluster"))
+long_data_combined$Component <- factor(long_data_combined$Component)
+
+# Plot boxplot
+png(file = paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/symps_boxplot.png", sep = ''), width = 1000, height = 1000)
+ggplot(long_data_combined, aes(x = Component, y = Value, fill = Cluster_Type)) +
+  geom_boxplot(position = "dodge", outlier.shape = NA) +
+  facet_wrap(~clu, scales = "free_x") +
+  labs(title = "", y = "Symptom severity") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  theme(legend.position = "bottom", legend.title = element_text(size = 18), legend.text = element_text(size = 18)) +
+  theme(panel.spacing = unit(2, "lines")) +
+  theme(axis.text = element_text(size = 18), axis.title = element_text(size = 18), strip.text.x = element_text(size = 18)) + 
+  scale_fill_manual(values = c("red", "grey95")) # Adjust colors here
+dev.off()
+
+
+#### UMAP
+
+img_vars_names_final=c('D2D1', 'D1D3', 'D1D4', 'D2D4', 'D3D4', 'S1S3', 'S2S4', 'S1S2', 'A2A1', 'A3A1', 'A4A2', 'A5A3', 'A4A6', 'A5A7', 'NS1', 'NS2', 'NS3', 'NS4', 'NS5', 'NS2NS1', 'NS3NS1', 'NS4NS1', 'NS5NS1', 'NT1', 'NT2', 'NT3', 'NT2NT1', 'NT3NT1', 'NTN1', 'NTN2', 'NTN3', 'NTN2NTN1', 'NTN3NTN1', 'P1', 'P2', 'P3', 'C1', 'C2', 'C3', 'C1C2', 'C3C2')
+X=data[, img_vars_names_final]
+
+# Calculate distance
+dist_mat <- as.dist(1-cor(t(X)))
+
+library(umap)
+library(cluster)
+
+sil=0
+while(sil <= 0.2) {
+  random_integer <- sample(1:1000000, 1)
+  print(paste(random_integer, sil))
+  umap_result <- umap(as.matrix(dist_mat), input="dist", n=2)
+  sil_res=silhouette(x = as.numeric(data$clu), dist = dist(umap_result$layout), random_state=random_integer)
+  sil_mean=mean(sil_res[, 3])
+  if (sil_mean>sil){
+    sil=sil_mean
+  }
+}
+
+
+
+
+
+
+library(umap)
+library(cluster)
+
+best_sil <- 0
+best_umap_result <- NULL
+
+while(best_sil <= 0.2) {
+  random_integer <- sample(1:1000000, 1)
+  n_neighbors <- sample(2:50, 1)
+  min_dist <- runif(1, 0.01, 1)
+  
+  print(paste("Seed:", random_integer, "Silhouette:", best_sil, "Neighbors:", n_neighbors, "Min Dist:", min_dist))
+  
+  umap_result <- umap(as.matrix(dist_mat), 
+                      input="dist", 
+                      n=2, 
+                      n_neighbors=n_neighbors, 
+                      min_dist=min_dist, 
+                      random_state=random_integer)
+  
+  sil_res <- silhouette(x = as.numeric(data$clu), 
+                        dist = dist(umap_result$layout))
+  sil_mean <- mean(sil_res[, 3])
+  
+  if (sil_mean > best_sil) {
+    best_sil <- sil_mean
+    best_umap_result <- umap_result
+    
+    
+    plt=plot(best_umap_result$layout, 
+           main = paste("Best UMAP with Silhouette:", round(best_sil, 3)), 
+           xlab = "UMAP1", 
+           ylab = "UMAP2", 
+           col = data$clu, 
+           pch = 19, 
+           cex=0.5)
+
+  }
+}
+
+
+save(best_umap_result, file='plots/best_umap')
+
+legend("right", legend=unique(data$clu), pch=16, col=unique(data$clu))
+as.numeric(data$clu)
+
+
+
+
+
+
+
+
+
+#### NEW BOXPLOTS
+
+comps_names_old=c('Ruminative.worry','Ruminative.brooding','Tension','Negative.bias','Threat.dysregulation','Anhedonia','Anxious.arousal','Cognitive.dyscontrol', 'Sleep')
+comps_names=c('Ruminative worry','Ruminative brooding','Tension','Negative bias','Threat dysregulation','Anhedonia','Anxious arousal','Cognitive dyscontrol', 'Sleep')
+setnames(data,comps_names_old, comps_names, skip_absent = T)
+
+# Function for rescaling 
+rescale_min_max_vals <- function(x, minval, maxval) {
+  (x - minval) / (maxval - minval)
+}
+
+# Rescale symptoms
+data_copy=data
+data_copy[, 'Ruminative worry']=rescale_min_max_vals(data_copy[, 'Ruminative worry'],16, 80) 
+data_copy[, 'Ruminative brooding']=rescale_min_max_vals(data_copy[, 'Ruminative brooding'],22, 88) 
+data_copy[, 'Tension']=rescale_min_max_vals(data_copy[, 'Tension'],0, 42) 
+data_copy[, 'Negative bias']=rescale_min_max_vals(data_copy[, 'Negative bias'],0, 42) 
+data_copy[, 'Threat dysregulation']=rescale_min_max_vals(data_copy[, 'Threat dysregulation'],0, 42) 
+data_copy[, 'Anhedonia']=rescale_min_max_vals(data_copy[, 'Anhedonia'],0, 14) 
+data_copy[, 'Anxious arousal']=rescale_min_max_vals(data_copy[, 'Anxious arousal'],10, 50) 
+data_copy[, 'Cognitive dyscontrol']=rescale_min_max_vals(data_copy[, 'Cognitive dyscontrol'],8, 32) 
+data_copy[, 'Sleep']=rescale_min_max_vals(data_copy[, 'Sleep'],0, 9) 
+
+# Convert the data from wide to long format
+long_data <- data_copy %>%
+  pivot_longer(cols = all_of(comps_names), names_to = "Component", values_to = "Value")
+
+
+
+# Function to get the data for a specific cluster and symptom
+get_cluster_data <- function(clu, comp, data) {
+  in_cluster_values <- data[data$clu == clu, comp]
+  not_in_cluster_values <- data[data$clu != clu, comp]
+  
+  data_frame(
+    Component = rep(comp, length(in_cluster_values) + length(not_in_cluster_values)),
+    Value = c(in_cluster_values, not_in_cluster_values),
+    Cluster_Type = c(rep("In Cluster", length(in_cluster_values)), rep("Not In Cluster", length(not_in_cluster_values))),
+    clu = rep(clu, length(in_cluster_values) + length(not_in_cluster_values))
+  )
+}
+
+# Initialize an empty data frame for the combined data
+long_data_combined <- data.frame()
+
+# Iterate through clusters and symptoms
+for (clu in unique(data_copy$clu)) {
+  for (comp in comps_names) {
+    cluster_data <- get_cluster_data(clu, comp, data_copy)
+    long_data_combined <- bind_rows(long_data_combined, cluster_data)
+  }
+}
+
+# Convert to factors
+long_data_combined$Component <- factor(long_data_combined$Component)
+long_data_combined$Cluster_Type <- factor(long_data_combined$Cluster_Type, levels = c("In Cluster", "Not In Cluster"))
+
+# Plot boxplot
+png(file = paste("/Users/ltozzi/Dropbox (PanLab)/cluster paper/plots/symps_boxplot.png", sep = ''), width = 1000, height = 1000)
+ggplot(long_data_combined, aes(x = Component, y = Value, fill = Cluster_Type)) +
+  geom_boxplot(position = "dodge", outlier.shape = NA) +
+  facet_wrap(~clu, scales = "free_x") +
+  labs(title = "", y = "Symptom severity") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  theme(legend.position = "bottom", legend.title = element_text(size = 18), legend.text = element_text(size = 18)) +
+  theme(panel.spacing = unit(2, "lines")) +
+  theme(axis.text = element_text(size = 18), axis.title = element_text(size = 18), strip.text.x = element_text(size = 18)) + 
+  scale_fill_manual(values = c("red", "grey95")) # Adjust colors here
+dev.off()
+
