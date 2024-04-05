@@ -1,11 +1,13 @@
+#### Libraries, imports and global variables ####
+
 library('ez.combat')
 library('vroom')
-
 set.seed(12345)
+setwd('/Users/ltozzi/PanLab Dropbox/Leonardo Tozzi/cluster paper/manuscript/Revision_2')
 
-setwd('/Users/ltozzi/Dropbox (PanLab)/cluster paper')
+#### COMBAT ####
 
-data=as.data.frame(vroom('appeal/analyses_competing_features/analysis_power/dataset_merged_qc_imputed.csv'))
+data=as.data.frame(vroom('analyses_competing_features/analysis_power/out/dataset_merged_qc_imputed.csv'))
 img_vars=grep("power", names(data), value = TRUE)
 
 # Run COMBAT
@@ -18,5 +20,5 @@ cb=ez.combat(data,
           verbose = TRUE)
 data_adjusted=cb$df
 
-write.csv(data_adjusted, 'appeal/analyses_competing_features/analysis_power/dataset_merged_qc_imputed_combat.csv', row.names = FALSE)
+write.csv(data_adjusted, 'analyses_competing_features/analysis_power/out/dataset_merged_qc_imputed_combat.csv', row.names = FALSE)
 
