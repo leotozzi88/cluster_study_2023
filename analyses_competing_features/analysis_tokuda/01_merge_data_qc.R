@@ -1,6 +1,9 @@
-library(dplyr)
+#### Libraries, imports and global variables ####
 
-setwd('/Users/ltozzi/Dropbox (PanLab)/cluster paper')
+library(dplyr)
+setwd('/Users/ltozzi/PanLab Dropbox/Leonardo Tozzi/cluster paper/manuscript/Revision_2')
+
+#### Merging ####
 
 subs_qc=c('60100007', '60100018', '60100029', '60100030', '60100040', '60100052', '60100063', '60100074', '60100085', '60100108', '60100119', '60100120', '60100131', '60100142', '60100153', '60100164', '60100175', '60100186', '60100197', '60100209', '60100210', '60100221', '60100232', '60100243', '60100254', '60100265', '60100276', '60100298', '60100300', '60100311', '60100322', '60100333', '60100344', '60100355', '60100366', '60100377', '60100388', '60100399', '60100401', '60100412', '60100423', '60100445', '60100456', '60100467', '60100478', '60100489', '60100502', '60100513', '60100524', '60100535', '60100546', '60100557', '60100580', '60100591', '60100614', '60100625', '60100636', '60100647', '60100658', '60100669', '60100670', '60100681', '60100692', '60100715', '60100726', '60100759', '60100805', '60100816', '60100827', '60100849', '60100861', '60100894', '60100906', '60100917', '60100940', '60101020', '60101031', '60101075', '60101086', '60101097', '60101109', '60101121', '60101154', '60101165', '60101187', '60101200', '60101244', '60101255', '60101266', '60101299', '60101301', '60101312', '60101323', '60101334', '60101356', '60101367', '60101378', '60101389', '60101402', '60101413', '60101435', '60101446', '60101457', '60101468', '60101479', '60101480', '60101491', '60101503', '60101514', '60101525', '60101536', '60101547', '60101558', '60101569', '60101570', '60101581', '60101592', '60101615', '60101626', '60101637', '60101648', '60101659', '60101660', '60101693', '60101705', '60101738', '60101750', '60101772', '60101895', '60101907', '60101918', '60101963', '60101974', '60101985', '60102010', '60102021', '60102032', '60102043', '60102133', '60102155', '60102177', '60102188', '60102199', '60102212', '60102223', '60102234', '60102256', '60102267', '60102278', '60102289', '60102302', '60102324', '60102335', '60102357', '60102368', '60102379', '60102380', '60102425', '60102469', '60102470', '60102504', '60102526', '60102548', '60102559', '60102560', '60102627', '60102661', '60102717', '60102773', '60102784', '60102795', '60102818', '60102830', '60102841', '60102852', '60102863', '60102885', '60102896', '60102908', '60102919', '60102920', '60102931', '60102942', '60102953', '60102975', '60102986', '60102997', '60103000', '60103011', '60103044', '60103134', '60103145', '60103190', '60103213', '60103268', '60103314', '60103347', '60103358', '60103381', '60103392', '60103426', '60103448', '60103482', '60103493', '60103561', '60103583', '60103594', '60103639', '60103684', '60103695', '60103707', '60103763', '60103774', '60103785', '60103796', '60103819', '60103820', '60103831', '60103842', '60103853', '60103864', '60103897', '60103909', '60103910', '60103921', '60103943', '60103954', '60103976', '60104012', '60104034', '60104067', '60104078', '60104090', '60104113', '60104135', '60104157', '60104236', '60104247', '60104258', '60104269', '60104270', '60104326', '60104337', '60104348', '60105024', '60105035', '60105046', '60105068', '60105079', '60105080', '60105091', '60105103', '60105114', '60105125', '60105136', '60105147', '60105158', '60105169', '60105170', '60105181', '60105192', '60105204', '60105215', '60105226', '60105237', '60105248', '60105259', '60105271', '60105282', 
           'CONN010', 'CONN011', 'CONN013', 'CONN014', 'CONN015', 'CONN016', 'CONN017', 'CONN018', 'CONN019', 'CONN020', 'CONN021', 'CONN022', 'CONN023', 'CONN024', 'CONN025', 'CONN026', 'CONN027', 'CONN028', 'CONN029', 'CONN030', 'CONN031', 'CONN032', 'CONN033', 'CONN034', 'CONN035', 'CONN036', 'CONN037', 'CONN038', 'CONN039', 'CONN040', 'CONN041', 'CONN042', 'CONN043', 'CONN044', 'CONN045', 'CONN046', 'CONN047', 'CONN048', 'CONN049', 'CONN050', 'CONN051', 'CONN052', 'CONN053', 'CONN054', 'CONN055', 'CONN056', 'CONN057', 'CONN058', 'CONN059', 'CONN060', 'CONN061', 'CONN062', 'CONN063', 'CONN064', 'CONN065', 'CONN066', 'CONN067', 'CONN068', 'CONN069', 'CONN070', 'CONN071', 'CONN072', 'CONN073', 'CONN074', 'CONN075', 'CONN076', 'CONN077', 'CONN078', 'CONN079', 'CONN080', 'CONN082', 'CONN083', 'CONN084', 'CONN102', 'CONN103', 'CONN104', 'CONN105', 'CONN107', 'CONN108', 'CONN110', 'CONN111', 'CONN112', 'CONN113', 'CONN114', 'CONN115', 'CONN116', 'CONN117', 'CONN118', 'CONN119', 'CONN120', 'CONN121', 'CONN122', 'CONN124', 'CONN125', 'CONN126', 'CONN127', 'CONN128', 'CONN129', 'CONN130', 'CONN131', 'CONN132', 'CONN133', 'CONN134', 'CONN135', 'CONN136', 'CONN137', 'CONN139', 'CONN140', 'CONN141', 'CONN142', 'CONN143', 'CONN144', 'CONN145', 'CONN146', 'CONN147', 'CONN148', 'CONN149', 'CONN150', 'CONN151', 'CONN152', 'CONN153', 'CONN154', 'CONN155', 'CONN156', 'CONN157', 'CONN158', 'CONN159', 'CONN160', 'CONN161', 'CONN162', 'CONN163', 'CONN166', 'CONN167', 'CONN168', 'CONN169', 'CONN170', 'CONN171', 'CONN172', 'CONN173', 'CONN174', 'CONN175', 'CONN176', 'CONN177', 'CONN178', 'CONN179', 'CONN180', 'CONN181', 'CONN182', 'CONN183', 'CONN185', 'CONN186', 'CONN188', 'CONN189', 'CONN190', 'CONN191', 'CONN192', 'CONN193', 'CONN194', 'CONN195', 'CONN196', 'CONN197', 'CONN198', 'CONN199', 'CONN200', 'CONN202', 'CONN203', 'CONN204', 'CONN206', 'CONN207', 'CONN208', 'CONN209', 'CONN210', 'CONN211', 'CONN212', 'CONN213', 'CONN215', 'CONN216', 'CONN217', 'CONN219', 'CONN220', 'CONN221', 'CONN222', 'CONN223', 'CONN224', 'CONN225', 'CONN226', 'CONN227', 'CONN228', 'CONN230', 'CONN231', 'CONN232', 'CONN234', 'CONN235', 'CONN236', 'CONN245', 'CONN246', 'CONN247', 'CONN248', 'CONN250', 'CONN251', 'CONN252', 'CONN254', 'CONN255', 'CONN257', 'CONN259', 'CONN260', 'CONN261', 'CONN262', 'CONN263', 'CONN264', 'CONN267', 'CONN268', 'CONN269', 'CONN270', 'CONN271', 'CONN272', 'CONN273', 'CONN274', 'CONN275', 'CONN276', 'CONN277', 'CONN278', 'CONN279', 'CONN280', 'CONN281', 'CONN282', 'CONN284', 'CONN285', 'CONN286', 'CONN287', 'CONN288', 'CONN289', 'CONN290', 'CONN294', 'CONN296', 'CONN298', 'CONN299', 'CONN300', 'CONN301', 'CONN302', 'CONN303', 'CONN304', 'CONN306', 'CONN308', 'CONN309', 'CONN310', 'CONN311', 'CONN312', 'CONN314', 'CONN315', 'CONN317', 'CONN318', 'CONN319', 'CONN320', 'CONN321', 'CONN322', 'CONN323', 'CONN326', 'CONN327', 'CONN329', 'CONN330', 'CONN331', 'CONN332', 'CONN333', 'CONN335', 'CONN336', 'CONN338', 'CONN339', 'CONN340', 'CONN341', 'CONN342', 'CONN343', 'CONN344', 'CONN345', 'CONN346', 'CONN348', 'CONN350', 'CONN351', 'CONN352', 'CONN353', 'CONN354', 'CONN355', 'CONN356', 'CONN360', 
@@ -9,15 +12,15 @@ subs_qc=c('60100007', '60100018', '60100029', '60100030', '60100040', '60100052'
 
 
 fd=read.csv('data/fd_table.csv')
-img=read.csv('appeal/analyses_competing_features/analysis_tokuda/tok_tab.csv')
-img <- img %>% rename_all(~sub("Var", "tok_", .))
+img=read.csv('analyses_competing_features/analysis_tokuda/out/tok_tab.csv')
+img = img %>% rename_all(~sub("Var", "tok_", .))
 
 ques=read.csv('data/quest_rad_ispotd_fu_hcpdes_engage_clean.csv')
 beh=read.csv('data/beh_rad_ispotd_hcpdes_engage_clean_inwn.csv')
 
 # Merge integneuro and webneuro
 library(dplyr)
-beh <- beh %>%
+beh = beh %>%
   mutate(
     wn_emzcompk_norm = ifelse(is.na(wn_emzcompk_norm), in_emzcmpin_norm, wn_emzcompk_norm),
     wn_emzerrk_norm = ifelse(is.na(wn_emzerrk_norm), in_emzerr_norm, wn_emzerrk_norm),
@@ -46,8 +49,6 @@ for (sub in img$id){
   }
 }
 
-#write.csv(img, 'appeal/analyses_competing_features/analysis_tokuda/circ_table_fdremoved.csv', row.names = FALSE)
-
 # Remove connections with bad coverage
 img_vars=grep("tok_", names(img), value = TRUE)
 img_vars_bad=c()
@@ -68,7 +69,7 @@ merged=merge(ques, img_nona, by = 'id')
 merged=merge(merged, beh, by = 'id', all.x = TRUE)
 
 # Save data
-write.csv(merged, 'appeal/analyses_competing_features/analysis_tokuda/dataset_merged.csv', row.names = FALSE)
+write.csv(merged, 'analyses_competing_features/analysis_tokuda/out/dataset_merged.csv', row.names = FALSE)
 
 # Keep only subjects who passed QC
 merged_qc=merged[merged$id %in% subs_qc, ]
@@ -103,6 +104,6 @@ merged_qc[merged_qc$study_reduced=='HCPDES' & merged_qc$group==0, 'table_sample'
 merged_qc[merged_qc$study_reduced=='ISPOTD' & merged_qc$group==0, 'table_sample']=6
 
 # Save data
-write.csv(merged_qc, 'appeal/analyses_competing_features/analysis_tokuda/dataset_merged_qc.csv', row.names = FALSE)
+write.csv(merged_qc, 'analyses_competing_features/analysis_tokuda/out/dataset_merged_qc.csv', row.names = FALSE)
 
 
