@@ -1,198 +1,63 @@
-library(data.table)
-library(factoextra)
-library(rcompanion)
+#### Libraries, imports and global variables ####
+
+source('analysis_main/custom_functions.R')
+
+setwd('/Users/ltozzi/PanLab Dropbox/Leonardo Tozzi/cluster paper/manuscript/Revision_2')
+set.seed(123123)
+data=read.csv('data/dataset_merged_qc_imputed_combat_clin_std_clu_sympbeh.csv')
 
 #### Validation of clusters in split-half data ####
 
-setwd('/Users/ltozzi/Dropbox (PanLab)/cluster paper')
-set.seed(123123)
-
-data=read.csv('data/dataset_merged_qc_imputed_combat_clin_std_clu.csv')
 img_vars_names=c('D2D1', 'D1D3', 'D1D4', 'D2D4', 'D3D4', 'S1S3', 'S2S4', 'S1S2', 'A2A1', 'A3A1', 'A4A2', 'A5A3', 'A4A6', 'A5A7', 'NS1', 'NS2', 'NS3', 'NS4', 'NS5', 'NS2NS1', 'NS3NS1', 'NS4NS1', 'NS5NS1', 'NT1', 'NT2', 'NT3', 'NT2NT1', 'NT3NT1', 'NTN1', 'NTN2', 'NTN3', 'NTN2NTN1', 'NTN3NTN1', 'P1', 'P2', 'P3', 'C1', 'C2', 'C3', 'C1C2', 'C3C2')
-
-#### Calculate symptom composites ####
-
-data[, 'Sleep']=rowSums(data[, c('qids_01', 'qids_02', 'qids_03')], na.rm = FALSE)
-data[, 'Suicide']=data[, c('qids_12')]
-
-# Rename variables
-comps=c('pswq_total', 'rrs_total','dass42_str_score','dass42_dep_score','dass42_anx_score', 'shaps_total','masq30_gen_score', 'bis_att_score', 'Suicide', 'Sleep', 'qids_total')
-comps_names=c('Ruminative worry', 'Ruminative brooding','Tension','Negative bias','Threat dysregulation', 'Anhedonia','Anxious arousal', 'Cognitive dyscontrol', 'Suicide', 'Sleep', 'Total Severity')
-data=setnames(data, comps, comps_names)
-
-#### Calculate behavior composites ####
-
-# Rename variables
-allbeh_wn=c('wn_emzcompk_norm', 'wn_emzerrk_norm', 'wn_g2avrtk_norm', 'wn_g2fpk_norm', 'wn_wmfnk_norm', 'wn_wmfpk_norm', 'wn_wmrtk_norm', 'wn_dgttrta_norm', 'wn_dgttrtf_norm', 'wn_dgttrth_norm', 'wn_dgttrts_norm', 'wn_dgttrtn_norm', 'wn_gettrta_norm', 'wn_gettrtf_norm', 'wn_gettrth_norm', 'wn_gettrts_norm')
-comps_rename=c('Maze_completion_time','Maze_errors','Go-Nogo_mean_RT','Go-Nogo_commission_errors','Working_memory_omission_errors','Working_memory_commission_errors','Working_memory_RT','Implicit_anger_RT','Implicit_fear_RT','Implicit_happy_RT','Implicit_sad_RT','Implicit_neutral_RT', 'Explicit_anger_RT','Explicit_fear_RT','Explicit_happy_RT','Explicit_sad_RT')
-setnames(data, old = allbeh_wn, new = comps_rename)
-
-# Flip sign of variables to interpret them in their original direction
-data[, comps_rename]=-data[, comps_rename]
-
-# Calculate composites
-data[, 'Implicit_fear_priming_RT']=data[, 'Implicit_fear_RT']-data[, 'Implicit_neutral_RT']
-data[, 'Implicit_anger_priming_RT']=data[, 'Implicit_anger_RT']-data[, 'Implicit_neutral_RT']
-data[, 'Implicit_sad_priming_RT']=data[, 'Implicit_sad_RT']-data[, 'Implicit_neutral_RT']
-data[, 'Implicit_happy_priming_RT']=data[, 'Implicit_happy_RT']-data[, 'Implicit_neutral_RT']
-data[, 'Implicit_threat_priming_RT']=rowMeans(data[, c('Implicit_fear_priming_RT', 'Implicit_anger_priming_RT')], na.rm = TRUE)
-data[, 'Explicit_threat_RT']=rowMeans(data[, c('Explicit_anger_RT', 'Explicit_fear_RT')], na.rm = TRUE)
 
 #### Split half assignment ####
 
-# Split into two halves
-perc=0.5
-num_in_sample1 <- round(nrow(data) * perc)
-sample_indicator <- c(rep(1, num_in_sample1), rep(2, nrow(data) - num_in_sample1))
-sample_indicator <- sample(sample_indicator)
-data$split2 <- sample_indicator
-data_spl1=data[data$split2==1, ]
-data_spl2=data[data$split2==2, ]
+splits=splithalf_and_cluster(data, nclu = 6, img_vars_names = img_vars_names)
+spl1=splits$data_spl1
+spl2=splits$data_spl2
 
-# Cluster on the first subset of data
-X=data_spl1[, img_vars_names]
-dist_mat <- as.dist(1-cor(t(X)))
-optclu=6
-hcres=hcut(dist_mat, optclu, hc_method = 'average', isdiss=TRUE)
-data_spl1[, 'clu_spl2']=hcres$cluster
+# Name clusters
+spl1$clu_spl2=factor(spl1$clu_spl2, levels = c(1, 2, 3, 4, 5, 6), labels=c('Rest hyper-connectivity','Cognitive dyscontrol hyper','Cognitive dyscontrol hypo','Inattention','Context insensitivity', 'Intact'))
+spl2$clu_spl2=factor(spl2$clu_spl2, levels = c(1, 2, 3, 4, 5, 6), labels=c('Rest hyper-connectivity','Cognitive dyscontrol hyper','Cognitive dyscontrol hypo','Inattention','Context insensitivity', 'Intact'))
 
-# Calculate mean profile for each biotype
-clu_mean_mat=matrix(nrow = max(data_spl1$clu_spl2), ncol = length(img_vars_names))
-for (clu in 1:max(data_spl1$clu_spl2)){
-  clu_mean_mat[clu, ]=colMeans(data_spl1[data_spl1$clu_spl2==clu, img_vars_names])
+# Save split variables for plotting later
+data[data$id %in% spl1$id, 'split2']=1
+data[data$id %in% spl2$id, 'split2']=2
+data=merge(data, rbind(spl2[,c('id', 'clu_spl2')], spl1[,c('id', 'clu_spl2')]), by = 'id')
+
+# Calculate mean correlation of cluster profiles 
+for (clu in unique(spl1$clu_spl2)){
+  clumean1=colMeans(spl1[spl1$clu_spl2==clu, img_vars_names])
+  clumean2=colMeans(spl2[spl2$clu_spl2==clu, img_vars_names])
+  res=cor.test(clumean1, clumean2)
+  print(paste(clu, 'r=', round(res$estimate, 2), 'p=', res$p.value))
 }
-
-# Assign each subject in the second subset to a cluster
-for (rr in 1:nrow(data_spl2)){
-  subprof=as.numeric(data_spl2[rr, img_vars_names])
-  cors=c()
-  for (clu in 1:max(data_spl1$clu_spl2)){
-    cors[clu]=cor(subprof, clu_mean_mat[clu, ])
-  }
-  data_spl2[rr, 'clu_spl2']=which(cors==max(cors))
-}
-
-# Add assignments to original data frame
-data[data$split2==1, 'clu_spl2']=factor(data_spl1$clu_spl2, levels = c(1, 2, 3, 4, 5, 6), labels=c('Rest hyper-connectivity','Cognitive dyscontrol hyper','Cognitive dyscontrol hypo','Inattention','Context insensitivity', 'Intact'))
-data[data$split2==2, 'clu_spl2']=factor(data_spl2$clu_spl2, levels = c(1, 2, 3, 4, 5, 6), labels=c('Rest hyper-connectivity','Cognitive dyscontrol hyper','Cognitive dyscontrol hypo','Inattention','Context insensitivity', 'Intact'))
-
-# Assign names to clusters
-data_spl1$clu_spl2=factor(data_spl1$clu_spl2, levels = c(1, 2, 3, 4, 5, 6), labels=c('Rest hyper-connectivity','Cognitive dyscontrol hyper','Cognitive dyscontrol hypo','Inattention','Context insensitivity', 'Intact'))
-data_spl2$clu_spl2=factor(data_spl2$clu_spl2, levels = c(1, 2, 3, 4, 5, 6), labels=c('Rest hyper-connectivity','Cognitive dyscontrol hyper','Cognitive dyscontrol hypo','Inattention','Context insensitivity', 'Intact'))
-
 
 #### Validation of symptom profiles in split-half data ####
-comps_names=c('Ruminative worry', 'Ruminative brooding','Tension','Negative bias','Threat dysregulation', 'Anhedonia','Anxious arousal', 'Cognitive dyscontrol', 'Sleep')
 
-# Test each cluster vs median of clinical participants not in the cluster
-symps_results1=as.data.frame(matrix(nrow=0, ncol=9))
-names(symps_results1)=c('Cluster', 'Symptom_composite', 'greater_spl1', 'N_spl1', 'mdn_spl1', 'mdn_other_spl1','p_spl1', 'z_spl1', 'r_spl1')
-for (clu in unique(data_spl1$clu_spl2)){
-  for (comp in comps_names){
-    temp=data_spl1[data_spl1$clu_spl2==clu, comp ]
-    temp_other=data_spl1[data_spl1$clu_spl2!=clu, comp ]
-    # Check that there are enough people with data
-    if (sum(is.na(temp))<length(temp)){
-    res=wilcox.test(x=temp, mu=median(temp_other, na.rm = T), conf.int = T)
-    z=wilcoxonZ(x=temp, mu=median(temp_other, na.rm = T))
-    mdn=median(temp, na.rm = T)
-    mdn_other=median(temp_other, na.rm = T)
-    dir=(mdn>mdn_other)*1
-    N=sum(!is.na(temp))
-    r=z/sqrt(N)
-    symps_results1[nrow(symps_results1)+1, ]=c(clu, comp, dir, N, mdn, mdn_other, res$p.value/2, z, r) #one sided confirmatory test
-    }
-    else{
-      symps_results1[nrow(symps_results1)+1, ]=c(clu, comp, NA, 0, NA, NA, NA, NA, NA)
-    }
-  }
-}
-
-# Test each cluster vs median of clinical participants not in the cluster
-symps_results2=as.data.frame(matrix(nrow=0, ncol=9))
-names(symps_results2)=c('Cluster', 'Symptom_composite', 'greater_spl2', 'N_spl2', 'mdn_spl2', 'mdn_other_spl2','p_spl2', 'z_spl2', 'r_spl2')
-for (clu in unique(data_spl2$clu_spl2)){
-  for (comp in comps_names){
-    temp=data_spl2[data_spl2$clu_spl2==clu, comp ]
-    temp_other=data_spl2[data_spl2$clu_spl2!=clu, comp ]
-    # Check that there are enough people with data
-    if (sum(is.na(temp))<length(temp)){
-      res=wilcox.test(x=temp, mu=median(temp_other, na.rm = T), conf.int = T)
-      z=wilcoxonZ(x=temp, mu=median(temp_other, na.rm = T))
-      mdn=median(temp, na.rm = T)
-      mdn_other=median(temp_other, na.rm = T)
-      dir=(mdn>mdn_other)*1
-      N=sum(!is.na(temp))
-      r=z/sqrt(N)
-      symps_results2[nrow(symps_results2)+1, ]=c(clu, comp, dir, N, mdn, mdn_other, res$p.value/2, z, r) #one sided confirmatory test
-    }
-    else{
-      symps_results2[nrow(symps_results2)+1, ]=c(clu, comp, NA, 0, NA, NA, NA, NA, NA)
-    }
-  }
-}
+comps_names=c('Ruminative_worry', 'Ruminative_brooding','Tension','Negative_bias','Threat_dysregulation', 'Anhedonia','Anxious_arousal', 'Cognitive_dyscontrol')
+spl1_symp_Z=compare_clusters(spl1, cluster_assignments = spl1$clu_spl2, var_names = comps_names)
+spl2_symp_Z=compare_clusters(spl2, cluster_assignments = spl2$clu_spl2, var_names = comps_names, onesided = T)
 
 # Export the results in one table
-symps_results_merged=merge(symps_results1, symps_results2, by = c('Cluster', 'Symptom_composite'))
+symps_results_merged=merge(spl1_symp_Z, spl2_symp_Z, by = c('Cluster', 'Symptom_composite'))
+names(symps_results_merged) = gsub(".x", "_spl1", names(symps_results_merged))
+names(symps_results_merged) = gsub(".y", "_spl2", names(symps_results_merged))
 write.csv(symps_results_merged, 'tables/symps_results_sh_merged.csv', row.names = F)
 
-
 #### Validation of behavior profiles in split-half data ####
-comps_names=c('Maze_completion_time','Maze_errors','Go-Nogo_mean_RT','Go-Nogo_commission_errors','Working_memory_omission_errors','Working_memory_commission_errors','Working_memory_RT','Implicit_threat_priming_RT','Implicit_happy_RT','Implicit_sad_RT', 'Explicit_threat_RT','Explicit_happy_RT','Explicit_sad_RT')
 
-# Test each cluster vs median of clinical participants not in the cluster
-beh_results1=as.data.frame(matrix(nrow=0, ncol=9))
-names(beh_results1)=c('Cluster', 'Symptom_composite', 'greater_spl1', 'N_spl1', 'mdn_spl1', 'mdn_other_spl1','p_spl1', 'z_spl1', 'r_spl1')
-for (clu in unique(data_spl1$clu_spl2)){
-  for (comp in comps_names){
-    temp=data_spl1[data_spl1$clu_spl2==clu, comp ]
-    temp_other=data_spl1[data_spl2$clu_spl2!=clu, comp ]
-    # Check that there are enough people with data
-    if (sum(is.na(temp))<length(temp)){
-      res=wilcox.test(x=temp, mu=median(temp_other, na.rm = T), conf.int = T)
-      z=wilcoxonZ(x=temp, mu=median(temp_other, na.rm = T))
-      mdn=median(temp, na.rm = T)
-      mdn_other=median(temp_other, na.rm = T)
-      dir=(mdn>mdn_other)*1
-      N=sum(!is.na(temp))
-      r=z/sqrt(N)
-      beh_results1[nrow(beh_results1)+1, ]=c(clu, comp, dir, N, mdn, mdn_other, res$p.value/2, z, r) #one sided confirmatory test
-    }
-    else{
-      beh_results1[nrow(beh_results1)+1, ]=c(clu, comp, NA, 0, NA, NA, NA, NA, NA)
-    }
-  }
-}
-
-# Test each cluster vs median of clinical participants not in the cluster
-beh_results2=as.data.frame(matrix(nrow=0, ncol=9))
-names(beh_results2)=c('Cluster', 'Symptom_composite', 'greater_spl2', 'N_spl2', 'mdn_spl2', 'mdn_other_spl2','p_spl2', 'z_spl2', 'r_spl2')
-for (clu in unique(data_spl2$clu_spl2)){
-  for (comp in comps_names){
-    temp=data_spl2[data_spl2$clu_spl2==clu, comp ]
-    temp_other=data_spl2[data_spl2$clu_spl2!=clu, comp ]
-    # Check that there are enough people with data
-    if (sum(is.na(temp))<length(temp)){
-      res=wilcox.test(x=temp, mu=median(temp_other, na.rm = T), conf.int = T)
-      z=wilcoxonZ(x=temp, mu=median(temp_other, na.rm = T))
-      mdn=median(temp, na.rm = T)
-      mdn_other=median(temp_other, na.rm = T)
-      dir=(mdn>mdn_other)*1
-      N=sum(!is.na(temp))
-      r=z/sqrt(N)
-      beh_results2[nrow(beh_results2)+1, ]=c(clu, comp, dir, N, mdn, mdn_other,  res$p.value/2, z, r) #one sided confirmatory test
-    }
-    else{
-      beh_results2[nrow(beh_results2)+1, ]=c(clu, comp, NA, 0, NA, NA, NA, NA)
-    }
-  }
-}
+comps_names=c('Maze_completion_time','Maze_errors','Go.Nogo_mean_RT','Go.Nogo_commission_errors','Working_memory_omission_errors','Working_memory_commission_errors','Working_memory_RT','Implicit_threat_priming_RT','Implicit_happy_RT','Implicit_sad_RT', 'Explicit_threat_RT','Explicit_happy_RT','Explicit_sad_RT')
+spl1_symp_Z=compare_clusters(spl1, cluster_assignments = spl1$clu_spl2, var_names = comps_names)
+spl2_symp_Z=compare_clusters(spl2, cluster_assignments = spl2$clu_spl2, var_names = comps_names, onesided = T)
 
 # Export the results in one table
-beh_results_merged=merge(beh_results1, beh_results2, by = c('Cluster', 'Symptom_composite'))
+beh_results_merged=merge(spl1_symp_Z, spl2_symp_Z, by = c('Cluster', 'Symptom_composite'))
+names(beh_results_merged) = gsub(".x", "_spl1", names(beh_results_merged))
+names(beh_results_merged) = gsub(".y", "_spl2", names(beh_results_merged))
 write.csv(beh_results_merged, 'tables/beh_results_sh_merged.csv', row.names = F)
 
-# Export
-write.csv(data, 'data/dataset_merged_qc_imputed_combat_clin_std_clu_dataspl.csv', row.names = F)
+#### Save data ####
 
+write.csv(data, 'data/dataset_merged_qc_imputed_combat_clin_std_clu_sympbeh_spl.csv')
 

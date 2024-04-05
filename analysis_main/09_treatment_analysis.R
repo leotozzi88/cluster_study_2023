@@ -1,9 +1,10 @@
+#### Libraries, imports and global variables ####
+
 library(rcompanion)
+setwd('/Users/ltozzi/PanLab Dropbox/Leonardo Tozzi/cluster paper/manuscript/Revision_2')
+data=read.csv('data/dataset_merged_qc_imputed_combat_clin_std_clu_sympbeh_spl.csv')
 
-setwd('/Users/ltozzi/Dropbox (PanLab)/cluster paper')
-
-# Import data
-data=read.csv('data/dataset_merged_qc_imputed_combat_clin_std_clu_dataspl.csv')
+#### Treatment response analyses ####
 
 # Scale severity between 0 and 1
 data[!is.na(data$hdrs21_total_bl), 'treat_severity_bl_scaled']=data[!is.na(data$hdrs21_total_bl), 'hdrs21_total_bl']/53 
@@ -71,7 +72,6 @@ for (treat in treats){
   print(res$p.value)
 }
 
-
 # Print percent of response
 for (clu in unique(data$clu)){
   temp=data[data$clu == clu, ]
@@ -88,5 +88,7 @@ for (clu in unique(data$clu)){
   print(tab)
 }
 
-# Export
-write.csv(data, 'data/dataset_merged_qc_imputed_combat_clin_std_clu_dataspl_treat.csv', row.names = FALSE)
+#### Save data ####
+
+write.csv(data, 'data/dataset_merged_qc_imputed_combat_clin_std_clu_sympbeh_spl_treat.csv')
+
