@@ -1,17 +1,19 @@
+#### Libraries, imports and global variables ####
+
 library(data.table)
-
-setwd('/Users/ltozzi/Dropbox (PanLab)/cluster paper')
-
-data=read.csv('appeal/analyses_competing_features/analysis_dmn/dataset_merged_qc_imputed_combat.csv')
+setwd('/Users/ltozzi/PanLab Dropbox/Leonardo Tozzi/cluster paper/manuscript/Revision_2/')
+data=read.csv('analyses_competing_features/analysis_dmn/out/dataset_merged_qc_imputed_combat.csv')
 img_vars=grep("dmn_", names(data), value = TRUE)
+
+#### Standardize ####
 
 # Save controls in a separate data set
 data_hc=data[data$group==0, ]
-write.csv(data_hc, 'appeal/analyses_competing_features/analysis_dmn/dataset_merged_qc_imputed_combat_hc.csv')
+write.csv(data_hc, 'analyses_competing_features/analysis_dmn/out/dataset_merged_qc_imputed_combat_hc.csv')
 
 # Save clinical subjects in a separate data set
 data_clin=data[data$group==1, ]
-write.csv(data_clin, 'appeal/analyses_competing_features/analysis_dmn/dataset_merged_qc_imputed_combat_clin.csv', row.names = FALSE)
+write.csv(data_clin, 'analyses_competing_features/analysis_dmn/out/dataset_merged_qc_imputed_combat_clin.csv', row.names = FALSE)
 
 # Standardize each imaging variable to mean and SD of controls
 data_clin_std=data_clin
@@ -30,6 +32,6 @@ for (var in img_vars){
 }
 
 # Save data
-write.csv(data_clin_std, 'appeal/analyses_competing_features/analysis_dmn/dataset_merged_qc_imputed_combat_clin_std.csv', row.names = FALSE)
-write.csv(data_all_std, 'appeal/analyses_competing_features/analysis_dmn/dataset_merged_qc_imputed_combat_all_std.csv', row.names = FALSE)
+write.csv(data_clin_std, 'analyses_competing_features/analysis_dmn/out/dataset_merged_qc_imputed_combat_clin_std.csv', row.names = FALSE)
+write.csv(data_all_std, 'analyses_competing_features/analysis_dmn/out/dataset_merged_qc_imputed_combat_all_std.csv', row.names = FALSE)
 
