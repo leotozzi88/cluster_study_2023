@@ -83,20 +83,22 @@ df_plot=na.omit(df_plot)
 
 # Bar plot of full profile of each cluster
 png(file=paste("plots/circuit_profile_bars_allfeats.png", sep=''),width=2000, height=1200)
-ggplot(df_plot)+ 
-  geom_bar(aes(x = feature, y=mn, fill=color), stat="identity") + 
-  facet_wrap(~clu, nrow = 3, scales='free') + 
-  scale_y_continuous(limits=c(-1.8,1.8), expand = c(0, 0)) +
-  geom_errorbar(aes(x=feature, ymin=mn-se, ymax=mn+se), width=.1) + 
-  labs(title="",x="", y = "")+
+ggplot(df_plot) + 
+  geom_bar(aes(x = feature, y = mn, fill = color), stat = "identity") + 
+  geom_errorbar(aes(x = feature, ymin = mn - se, ymax = mn + se), width = 0.1) + 
+  geom_point(data = data_long, aes(x = feature, y = score), color = "black", size = 0.005, alpha = 0.2, position = position_jitter(width = 0.2)) +  # Overlay original data points
+  facet_wrap(~clu, nrow = 3, scales = 'free') + 
+  scale_y_continuous(limits = c(-5, 5), expand = c(0, 0)) +
+  labs(title = "", x = "", y = "") +
   theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1.2)) +
-  xlab("") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-                   panel.background = element_blank(), axis.line = element_line(colour = "black"))+
-  theme(legend.position = "bottom", legend.title=element_text(size=18), legend.text=element_text(size=18))+
-  theme(panel.spacing = unit(2, "lines"))+
-  theme(axis.text = element_text(size = 18), axis.title =  element_text(size = 18), strip.text.x = element_text(size = 18)) +
-  scale_fill_manual(name='Regional circuit score', values = levels(df_plot$color), labels=c('Default', 'Salience', 'Attention', 'Negative', 'Positive', 'Cognitive')) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust = 1.2)) +
+  xlab("") + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  theme(legend.position = "bottom", legend.title = element_text(size = 18), legend.text = element_text(size = 18)) +
+  theme(panel.spacing = unit(2, "lines")) +
+  theme(axis.text = element_text(size = 18), axis.title = element_text(size = 18), strip.text.x = element_text(size = 18)) +
+  scale_fill_manual(name = 'Regional circuit score', values = levels(df_plot$color), labels = c('Default', 'Salience', 'Attention', 'Negative', 'Positive', 'Cognitive')) +
   theme(strip.text.x = element_blank())
 dev.off()
 
@@ -135,9 +137,10 @@ df_plot=na.omit(df_plot)
 # Bar plot of summary of circuit scores for each cluster
 png(file=paste("plots/circuit_profile_bars.png", sep=''),width=700, height=1200)
 ggplot(df_plot)+ 
+  geom_point(data = data_long, aes(x = feature, y = score), color = "black", size = 0.005, alpha = 0.2, position = position_jitter(width = 0.2)) +  # Overlay original data points
   geom_bar(aes(x = feature, y=mn, fill=color), stat="identity") + 
   facet_wrap(~clu, nrow = 3, scales='free') + 
-  scale_y_continuous(limits=c(-1.1,1.1), expand = c(0, 0)) +
+  scale_y_continuous(limits=c(-2, 2), expand = c(0, 0)) +
   geom_errorbar(aes(x=feature, ymin=mn-se, ymax=mn+se), width=.1) + 
   labs(title="",x="", y = "")+
   theme_minimal() + 
