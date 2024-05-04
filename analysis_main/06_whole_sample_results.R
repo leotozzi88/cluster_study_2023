@@ -63,6 +63,18 @@ whole_beh_Z=compare_clusters(data, cluster_assignments = data$clu, var_names = c
 # Export the results in one table
 write.csv(whole_beh_Z, 'tables/beh_results_all.csv', row.names = F)
 
+#### Test the impact of other variables ####
+
+chisq.test(data$clu, data$gender)
+chisq.test(data$clu, data$mdd_current)
+chisq.test(data$clu, data$gad_current)
+chisq.test(data$clu, data$panic_current)
+chisq.test(data$clu, data$social_phobia_current)
+chisq.test(data$clu, data$ocd_current)
+chisq.test(data$clu, data$ptsd_current)
+chisq.test(data$clu, data$study)
+chisq.test(data$clu, data$scanner)
+
 #### Save data ####
 
 write.csv(data, 'data/dataset_merged_qc_imputed_combat_clin_std_clu_sympbeh.csv')
