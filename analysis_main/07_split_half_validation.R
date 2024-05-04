@@ -1,8 +1,7 @@
 #### Libraries, imports and global variables ####
 
-source('analysis_main/custom_functions.R')
-
 setwd('/Users/ltozzi/PanLab Dropbox/Leonardo Tozzi/cluster paper/manuscript/Revision_2')
+source('analysis_main/custom_functions.R')
 set.seed(123123)
 data=read.csv('data/dataset_merged_qc_imputed_combat_clin_std_clu_sympbeh.csv')
 
